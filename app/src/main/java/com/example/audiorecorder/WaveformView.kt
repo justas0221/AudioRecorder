@@ -55,6 +55,14 @@ class WaveformView(context: Context, attrs: AttributeSet?) : View(context, attrs
         invalidate()
     }
 
+    fun clearAndGetAmplitudes() : ArrayList<Float>{
+        val amps = amplitudes.clone() as ArrayList<Float>
+        amplitudes.clear()
+        spikes.clear()
+        invalidate()
+        return amps
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         spikes.forEach {
