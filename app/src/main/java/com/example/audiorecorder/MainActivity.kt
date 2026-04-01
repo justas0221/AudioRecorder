@@ -2,6 +2,7 @@ package com.example.audiorecorder
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaRecorder
 import android.os.Build
@@ -18,10 +19,16 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.room.Database
+import androidx.room.Room
 import com.example.audiorecorder.databinding.ActivityMainBinding
 import com.google.android.material.bottomsheet.BottomSheetBehavior
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
+import java.io.ObjectOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -41,7 +48,11 @@ class MainActivity : AppCompatActivity(), Timer.OnTimerTickListener {
     private var isRecording = false
     private var isPaused = false
 
+    private var duration = ""
+
     private lateinit var timer: Timer
+
+    private lateinit var db: AppDatabase
 
     private lateinit var bottomSheetBehavior: BottomSheetBehavior<LinearLayout>
 
@@ -75,6 +86,13 @@ class MainActivity : AppCompatActivity(), Timer.OnTimerTickListener {
         if(!permissionGranted)
             ActivityCompat.requestPermissions(this, permissions, REQUEST_CODE)
 
+        db = Room.databaseBuilder(
+            this,
+            AppDatabase::class.java,
+            "audioRecords"
+        ).build()
+
+
         // Initialize BottomSheetBehavior
         bottomSheetBehavior = BottomSheetBehavior.from(binding.bottomSheet.root)
         bottomSheetBehavior.isHideable = true
@@ -105,7 +123,8 @@ class MainActivity : AppCompatActivity(), Timer.OnTimerTickListener {
         }
 
         binding.btnList.setOnClickListener {
-            Toast.makeText(this, "List button", Toast.LENGTH_SHORT).show()
+            val intent = Intent(this, GalleryActivity::class.java)
+            startActivity(intent)
         }
 
         binding.btnDone.setOnClickListener {
@@ -147,6 +166,23 @@ class MainActivity : AppCompatActivity(), Timer.OnTimerTickListener {
             File("$dirPath$fileName.mp3").renameTo(newFile)
         }
         Toast.makeText(this, "Recording saved", Toast.LENGTH_SHORT).show()
+        val filePath = "$dirPath$newFileName.mp3"
+        val timestamp = Date().time
+        val ampsPath = "$dirPath$newFileName"
+
+        try{
+            val fos = FileOutputStream(filePath)
+            var out = ObjectOutputStream(fos)
+            out.writeObject(amplitudes)
+            fos.close()
+            out.close()
+        } catch (e: Exception) {}
+
+        var record = AudioRecord(newFileName, filePath, timestamp, duration, ampsPath)
+
+        GlobalScope.launch {
+            db.audioRecordDao().insert(record)
+        }
     }
 
     private fun dismiss(){
@@ -263,6 +299,7 @@ class MainActivity : AppCompatActivity(), Timer.OnTimerTickListener {
 
     override fun onTimerTick(duration: String) {
         binding.tvTimer.text = duration
+        this.duration = duration.dropLast(3)
         binding.waveformView.addAmplitude(recorder?.maxAmplitude?.toFloat() ?: 0f)
     }
 }
