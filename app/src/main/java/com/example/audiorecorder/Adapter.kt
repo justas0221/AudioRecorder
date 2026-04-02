@@ -12,6 +12,19 @@ import java.util.Locale
 
 class Adapter(var records: ArrayList<AudioRecord>, var listener: OnItemClickListener) : RecyclerView.Adapter<Adapter.ViewHolder>() {
 
+    private var editMode = false
+
+    fun isEditMode(): Boolean {
+        return editMode
+    }
+
+    fun setEditMode(mode: Boolean) {
+        if (editMode != mode) {
+            editMode = mode
+            notifyDataSetChanged()
+        }
+    }
+
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView), View.OnClickListener, View.OnLongClickListener {
         var tvFileName: TextView = itemView.findViewById(R.id.tvFileName)
         var tvMeta: TextView = itemView.findViewById(R.id.tvMeta)
@@ -57,6 +70,14 @@ class Adapter(var records: ArrayList<AudioRecord>, var listener: OnItemClickList
 
             holder.tvFileName.text = record.fileName
             holder.tvMeta.text = "${record.duration} $strDate"
+
+            if (editMode) {
+                holder.checkbox.visibility = View.VISIBLE
+                holder.checkbox.isChecked = record.isChecked
+            } else {
+                holder.checkbox.visibility = View.GONE
+                holder.checkbox.isChecked = false
+            }
         }
     }
 }

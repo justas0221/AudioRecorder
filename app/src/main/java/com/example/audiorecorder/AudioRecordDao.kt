@@ -14,6 +14,9 @@ interface AudioRecordDao {
     @Query("SELECT * FROM audioRecords WHERE fileName LIKE :query")
     fun searchDatabase(query: String): List<AudioRecord>
 
+    @Query("SELECT COUNT(*) FROM audioRecords WHERE fileName = :name")
+    fun countByName(name: String): Int
+
     @Insert
     fun insert(vararg audioRecord: AudioRecord)
 

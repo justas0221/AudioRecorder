@@ -50,6 +50,35 @@
 
         </com.google.android.material.appbar.CollapsingToolbarLayout>
 
+        <RelativeLayout
+            android:id="@+id/editBar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:visibility="gone">
+
+            <ImageButton
+                android:id="@+id/btnClose"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_centerVertical="true"
+                android:background="@drawable/ic_close"
+                android:backgroundTint="@android:color/black" />
+
+            <ImageButton
+                android:id="@+id/btnSelectAll"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:background="@drawable/ic_list"
+                android:backgroundTint="@android:color/black" />
+
+        </RelativeLayout>
+
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/searchLayout"
             style="@style/SearchInputStyle"
@@ -87,5 +116,56 @@
         android:text="No recordings found"
         android:textSize="16sp"
         android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/bottomSheet"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@android:color/white"
+        android:elevation="8dp"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        app:behavior_hideable="true"
+        app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="90dp"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageButton
+                android:id="@+id/btnDelete"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/ic_delete" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Delete" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageButton
+                android:id="@+id/btnEdit"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/ic_edit" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Rename" />
+        </LinearLayout>
+
+    </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
