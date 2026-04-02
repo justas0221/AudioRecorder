@@ -7,8 +7,6 @@ import android.content.pm.PackageManager
 import android.media.MediaRecorder
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.view.inputmethod.InputMethodManager
@@ -19,15 +17,14 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.room.Database
-import androidx.room.Room
+import androidx.lifecycle.lifecycleScope
 import com.example.audiorecorder.databinding.ActivityMainBinding
 import com.google.android.material.bottomsheet.BottomSheetBehavior
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-import java.io.IOException
 import java.io.ObjectOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -51,11 +48,8 @@ class MainActivity : AppCompatActivity(), Timer.OnTimerTickListener {
     private var duration = ""
 
     private lateinit var timer: Timer
-
     private lateinit var db: AppDatabase
-
     private lateinit var bottomSheetBehavior: BottomSheetBehavior<LinearLayout>
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,21 +57,13 @@ class MainActivity : AppCompatActivity(), Timer.OnTimerTickListener {
         enableEdgeToEdge()
         setContentView(binding.root)
         
-        // Handle Insets for Edge-to-Edge and Keyboard
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
-            
-            // Apply top padding for status bar to the root CoordinatorLayout
             binding.main.setPadding(systemBars.left, systemBars.top, systemBars.right, 0)
-            
-            // Apply bottom padding to the bottom sheet to avoid keyboard or navigation bar
             val bottomInset = if (ime.bottom > 0) ime.bottom else systemBars.bottom
             binding.bottomSheet.root.setPadding(0, 0, 0, bottomInset)
-            
-            // Apply bottom padding to main content (first child) to avoid navigation bar
             binding.main.getChildAt(0).setPadding(0, 0, 0, systemBars.bottom)
-            
             insets
         }
 
@@ -86,14 +72,8 @@ class MainActivity : AppCompatActivity(), Timer.OnTimerTickListener {
         if(!permissionGranted)
             ActivityCompat.requestPermissions(this, permissions, REQUEST_CODE)
 
-        db = Room.databaseBuilder(
-            this,
-            AppDatabase::class.java,
-            "audioRecords"
-        ).build()
+        db = AppDatabase.getInstance(this)
 
-
-        // Initialize BottomSheetBehavior
         bottomSheetBehavior = BottomSheetBehavior.from(binding.bottomSheet.root)
         bottomSheetBehavior.isHideable = true
         bottomSheetBehavior.peekHeight = 0
@@ -111,7 +91,6 @@ class MainActivity : AppCompatActivity(), Timer.OnTimerTickListener {
             }
         })
 
-
         timer = Timer(this)
 
         binding.btnRecord.setOnClickListener {
@@ -123,8 +102,7 @@ class MainActivity : AppCompatActivity(), Timer.OnTimerTickListener {
         }
 
         binding.btnList.setOnClickListener {
-            val intent = Intent(this, GalleryActivity::class.java)
-            startActivity(intent)
+            startActivity(Intent(this, GalleryActivity::class.java))
         }
 
         binding.btnDone.setOnClickListener {
@@ -149,7 +127,6 @@ class MainActivity : AppCompatActivity(), Timer.OnTimerTickListener {
             dismiss()
         }
 
-
         binding.btnDelete.setOnClickListener {
             stopRecording()
             File("$dirPath$fileName.mp3").delete()
@@ -161,27 +138,34 @@ class MainActivity : AppCompatActivity(), Timer.OnTimerTickListener {
 
     private fun save(){
         val newFileName = binding.bottomSheet.fileNameInput.text.toString()
+        val oldFile = File("$dirPath$fileName.mp3")
+        val newFile = File("$dirPath$newFileName.mp3")
+        
         if(newFileName != fileName) {
-            val newFile = File("$dirPath$newFileName.mp3")
-            File("$dirPath$fileName.mp3").renameTo(newFile)
+            oldFile.renameTo(newFile)
         }
-        Toast.makeText(this, "Recording saved", Toast.LENGTH_SHORT).show()
-        val filePath = "$dirPath$newFileName.mp3"
+        
+        val filePath = newFile.absolutePath
         val timestamp = Date().time
-        val ampsPath = "$dirPath$newFileName"
+        val ampsPath = File(filesDir, "$newFileName.amps").absolutePath
 
-        try{
-            val fos = FileOutputStream(filePath)
-            var out = ObjectOutputStream(fos)
-            out.writeObject(amplitudes)
-            fos.close()
-            out.close()
-        } catch (e: Exception) {}
+        lifecycleScope.launch(Dispatchers.IO) {
+            try{
+                val fos = FileOutputStream(ampsPath)
+                val out = ObjectOutputStream(fos)
+                out.writeObject(amplitudes)
+                out.close()
+                fos.close()
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Failed to save amplitudes: ${e.message}")
+            }
 
-        var record = AudioRecord(newFileName, filePath, timestamp, duration, ampsPath)
-
-        GlobalScope.launch {
+            val record = AudioRecord(newFileName, filePath, timestamp, duration, ampsPath)
             db.audioRecordDao().insert(record)
+            
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@MainActivity, "Recording saved", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -195,13 +179,8 @@ class MainActivity : AppCompatActivity(), Timer.OnTimerTickListener {
         imm.hideSoftInputFromWindow(view.windowToken, 0)
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-
         if(requestCode == REQUEST_CODE)
             permissionGranted = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
     }
@@ -210,7 +189,7 @@ class MainActivity : AppCompatActivity(), Timer.OnTimerTickListener {
         try {
             recorder?.pause()
             isPaused = true
-            binding.btnRecord.setImageResource(0)
+            binding.btnRecord.setImageResource(R.drawable.ic_record)
             timer.pause()
         } catch (e: Exception) {
             Log.e("MainActivity", "pauseRecording: ${e.message}")
@@ -234,6 +213,11 @@ class MainActivity : AppCompatActivity(), Timer.OnTimerTickListener {
             return
         }
 
+        amplitudes = ArrayList()
+        dirPath = "${filesDir.absolutePath}/"
+        val date = SimpleDateFormat("yyyy.MM.dd_HH.mm.ss", Locale.getDefault()).format(Date())
+        fileName = "audio_record_$date"
+
         recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             MediaRecorder(this)
         } else {
@@ -241,23 +225,17 @@ class MainActivity : AppCompatActivity(), Timer.OnTimerTickListener {
             MediaRecorder()
         }
         
-        dirPath = "${externalCacheDir?.absolutePath}/"
-
-        val simpleDateFormat = SimpleDateFormat("yyyy.MM.dd_HH.mm.ss", Locale.getDefault())
-        val date = simpleDateFormat.format(Date())
-        fileName = "audio_record_$date"
-
         recorder?.apply {
             setAudioSource(MediaRecorder.AudioSource.MIC)
             setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
             setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            setAudioChannels(1)
+            setAudioSamplingRate(44100)
+            setAudioEncodingBitRate(128000)
             setOutputFile("$dirPath$fileName.mp3")
             try {
                 prepare()
                 start()
-            } catch (e: IOException) {
-                Log.e("MainActivity", "prepare() failed: ${e.message}")
-                return
             } catch (e: Exception) {
                 Log.e("MainActivity", "start() failed: ${e.message}")
                 return
@@ -267,7 +245,6 @@ class MainActivity : AppCompatActivity(), Timer.OnTimerTickListener {
         binding.btnRecord.setImageResource(R.drawable.ic_pause)
         isRecording = true
         isPaused = false
-
         timer.start()
 
         binding.btnDelete.isClickable = true
@@ -279,27 +256,34 @@ class MainActivity : AppCompatActivity(), Timer.OnTimerTickListener {
     private fun stopRecording(){
         try {
             recorder?.stop()
-            recorder?.release()
-            recorder = null
-            timer.stop()
-            isRecording = false
-            isPaused = false
-            binding.btnRecord.setImageResource(0)
-            binding.tvTimer.text = "00:00.00"
-            binding.btnList.visibility = View.VISIBLE
-            binding.btnDone.visibility = View.GONE
-            binding.btnDelete.isClickable = false
-            binding.btnDelete.setImageResource(R.drawable.ic_delete_disabled)
-            binding.btnRecord.setImageResource(R.drawable.ic_record)
-            amplitudes = binding.waveformView.clearAndGetAmplitudes()
         } catch (e: Exception) {
-            Log.e("MainActivity", "stopRecording failed: ${e.message}")
+            Log.e("MainActivity", "stop failed")
         }
+        
+        recorder?.release()
+        recorder = null
+        timer.stop()
+        isRecording = false
+        isPaused = false
+        
+        binding.btnRecord.setImageResource(R.drawable.ic_record)
+        binding.tvTimer.text = "00:00.00"
+        binding.btnList.visibility = View.VISIBLE
+        binding.btnDone.visibility = View.GONE
+        binding.btnDelete.isClickable = false
+        binding.btnDelete.setImageResource(R.drawable.ic_delete_disabled)
+        
+        amplitudes = binding.waveformView.clearAndGetAmplitudes()
     }
 
     override fun onTimerTick(duration: String) {
         binding.tvTimer.text = duration
         this.duration = duration.dropLast(3)
-        binding.waveformView.addAmplitude(recorder?.maxAmplitude?.toFloat() ?: 0f)
+        if (isRecording && !isPaused) {
+            try {
+                val amp = recorder?.maxAmplitude ?: 0
+                binding.waveformView.addAmplitude(amp.toFloat())
+            } catch (e: Exception) {}
+        }
     }
 }

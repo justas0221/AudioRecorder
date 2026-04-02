@@ -8,8 +8,11 @@ import androidx.room.Update
 
 @Dao
 interface AudioRecordDao {
-    @Query("SELECT * FROM audioRecords")
+    @Query("SELECT * FROM audioRecords ORDER BY timestamp DESC")
     fun getAll(): List<AudioRecord>
+
+    @Query("SELECT * FROM audioRecords WHERE fileName LIKE :query")
+    fun searchDatabase(query: String): List<AudioRecord>
 
     @Insert
     fun insert(vararg audioRecord: AudioRecord)
@@ -23,4 +26,6 @@ interface AudioRecordDao {
     @Update
     fun update(audioRecord: AudioRecord)
 
+    @Query("DELETE FROM audioRecords")
+    fun deleteAll()
 }

@@ -26,6 +26,10 @@
             android:name=".GalleryActivity"
             android:exported="false"
             android:parentActivityName=".MainActivity" />
+        <activity
+            android:name=".AudioPlayerActivity"
+            android:exported="false"
+            android:parentActivityName=".GalleryActivity" />
     </application>
 
 </manifest>

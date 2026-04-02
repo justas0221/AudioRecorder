@@ -7,35 +7,32 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.View
-import kotlin.math.sqrt
 
 class WaveformView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
-    private var paint = Paint()
+    private val paint = Paint()
     private var amplitudes = ArrayList<Float>()
     private var spikes = ArrayList<RectF>()
 
-    private var radius = 6f
-    private var w = 9f
-    private var d = 6f
+    private val radius = 6f
+    private val w = 9f
+    private val d = 6f
 
     init {
-        paint.color = Color.rgb(244, 81, 30) // Match the record button color (Orange-Red)
+        paint.color = Color.rgb(244, 81, 30)
         paint.style = Paint.Style.FILL
         paint.isAntiAlias = true
     }
 
     fun addAmplitude(amp: Float) {
-        val sensitiveAmp = (amp * 1.5f).coerceAtMost(32767f)
-        val normAmp = sqrt(sensitiveAmp.coerceAtLeast(0f) / 32767f) * (height.toFloat() * 1.0f)
-        
-        val finalAmp = normAmp.coerceAtLeast(4f)
+        // High sensitivity scaling
+        val normAmp = (amp / 32767f) * height.toFloat() * 5.0f
+        val finalAmp = normAmp.coerceIn(10f, height.toFloat())
         
         amplitudes.add(finalAmp)
 
         spikes.clear()
         val maxSpikes = (width / (w + d)).toInt()
-        
         val amps = amplitudes.takeLast(maxSpikes)
 
         for (i in amps.indices) {
@@ -46,7 +43,7 @@ class WaveformView(context: Context, attrs: AttributeSet?) : View(context, attrs
             spikes.add(RectF(left, top, right, bottom))
         }
 
-        invalidate() // This triggers onDraw
+        invalidate()
     }
     
     fun clear() {
@@ -56,7 +53,7 @@ class WaveformView(context: Context, attrs: AttributeSet?) : View(context, attrs
     }
 
     fun clearAndGetAmplitudes() : ArrayList<Float>{
-        val amps = amplitudes.clone() as ArrayList<Float>
+        val amps = ArrayList(amplitudes)
         amplitudes.clear()
         spikes.clear()
         invalidate()
